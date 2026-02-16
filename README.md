@@ -1,2 +1,2 @@
 # Memoria-grupo-8-
-MEMORIA EL JUEGO (nombre en desarrollo)
+FLIP IT (Hecho por el grupo 8 de OyA De Datos)
