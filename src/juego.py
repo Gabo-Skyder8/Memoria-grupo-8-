@@ -241,8 +241,7 @@ class MiJuego(GameBase):
             self.start()
         except Exception as exc:
             pass
-        # la clase base normalmente ejecuta on_start tras iniciar; hacerlo
-        # explícitamente para asegurarnos de que _fondo y fuentes están listos.
+        # la clase base normalmente ejecuta on_start tras iniciar
         try:
             self.on_start()
         except Exception:
@@ -286,8 +285,7 @@ class MiJuego(GameBase):
         if constantes.SONIDO_ACTIVADO and pygame.mixer.get_init():
             reproducir_musica(constantes.SONIDO_JUEGO)
 
-        # asegurarnos de tener una superficie válida (no siempre tenemos la
-        # misma referencia que nos pasaron desde run_preview).
+        # asegurarnos de tener una superficie válida
         ventana = self.surface if hasattr(self, "surface") else None
         if ventana is None:
             ventana = pygame.display.get_surface()
@@ -514,3 +512,4 @@ class MiJuego(GameBase):
             pygame.display.update()
             reloj.tick(60)
         return "menu"
+
