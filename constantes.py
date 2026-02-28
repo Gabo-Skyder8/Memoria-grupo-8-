@@ -23,7 +23,6 @@ IMG_TEMAS = {
     "frutas": IMG_DIR / "frutas",
     "planetas": IMG_DIR / "planetas",
     "animales": IMG_DIR / "animales",
-    "todo junto": IMG_DIR / "todo_junto",
     "aleatorio": None, 
 }
 TEMA_CARTAS = "instrumentos" 
