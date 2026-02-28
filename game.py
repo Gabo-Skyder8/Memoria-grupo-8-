@@ -6,24 +6,20 @@ from pathlib import Path
 import constantes
 from constantes import DIFICULTAD, IMG_TEMAS
 from audio import play_efecto
-from enfocate import GameBase, GameMetadata
 
-
-def _get_fondo():
-    """Obtiene el fondo escalado (usable tras recargar constantes)."""
-    return pygame.transform.scale(constantes.FONDO, (constantes.ANCHO, constantes.ALTO))
+fondo = pygame.transform.scale(constantes.FONDO, (constantes.ANCHO, constantes.ALTO))
 
 class Carta:
-    def __init__(self, imagen, x, y, ancho, alto):
+    def __init__(self, imagen, x, y, ancho, alto, volteada):
         self.imagen = imagen
+        self._volteada = pygame.transform.scale(volteada, (ancho, alto))
+        self._fondo = self._volteada
         self.rect = pygame.Rect(x, y, ancho, alto)
         self.visible = False
         self.emparejada = False
         self.ancho_orig, self.alto_orig = ancho, alto
         self.animacion_volteo = None  # None | "mostrar" | "ocultar"
         self.progreso_volteo = 0.0
-        self._fondo = pygame.Surface((ancho, alto))
-        self._fondo.fill(constantes.MORADO_P)
     
     def actualizar_volteo(self, dt):
         if self.animacion_volteo is None:
@@ -41,7 +37,7 @@ class Carta:
             scale = math.sin(p * math.pi)
             w = max(2, int(self.ancho_orig * scale))
             mostrar_frente = p >= 0.5
-            surf = self.imagen if mostrar_frente else self._fondo
+            surf = self.imagen if mostrar_frente else self._volteada
             img_esc = pygame.transform.smoothscale(surf, (w, self.alto_orig))
             rect_esc = img_esc.get_rect(center=self.rect.center)
             ventana.blit(img_esc, rect_esc)
@@ -49,7 +45,7 @@ class Carta:
         if self.visible or self.emparejada:
             ventana.blit(self.imagen, self.rect)
         else:
-            ventana.blit(self._fondo, self.rect)
+            ventana.blit(self._volteada, self.rect)
     
     def clic_en_carta(self, pos):
         return (self.rect.collidepoint(pos) and 
@@ -136,6 +132,14 @@ def crear_cartas(pares, dificultad):
     columnas, filas = config["columnas"], config["filas"]
     img_dir = _directorio_tema()
 
+    #cargar imagen cuando la carta esta volteada
+    try:
+        img_ori = pygame.image.load(str(constantes.CARTA_VOLTEADA)).convert_alpha()
+        volteada = pygame.transform.scale(img_ori, (ancho, alto))
+    except (FileNotFoundError, pygame.error):
+        volteada = pygame.Surface((ancho,alto))
+        volteada.fill(constantes.MORADO_P)
+
     # Cargar imágenes desde el tema elegido
     imagenes = []
     for i in range(1, pares + 1):
@@ -164,13 +168,14 @@ def crear_cartas(pares, dificultad):
     alto_total = filas * alto + (filas - 1) * margen
     y_inicial = (constantes.ALTO - alto_total) // 2
     
+    #crear rects y cartas
     idx = 0
     for fila in range(filas):
         for col in range(columnas):
             if idx < len(imagenes):
                 x = x_inicial + col * (ancho + margen)
                 y = y_inicial + fila * (alto + margen)
-                carta = Carta(imagenes[idx], x, y, ancho, alto)
+                carta = Carta(imagenes[idx], x, y, ancho, alto, volteada)
                 cartas.append(carta)
                 idx += 1
     return cartas
@@ -199,14 +204,15 @@ def ejecutar_juego(ventana, reloj, dificultad, tiempo_segundos=None):
     # Botones de juego
     btn_reiniciar = Boton("Reiniciar", 10, constantes.ALTO - 60, 120, 50)
     btn_menu = Boton("Menú", 140, constantes.ALTO - 60, 120, 50)
-
+    
+    print(len(cartas))
     jugando = True
     while jugando:
         dt = reloj.tick(constantes.FPS) / 1000.0
-        ventana.blit(_get_fondo(), (0, 0))
+        ventana.blit(fondo, (0, 0))
         
-        for carta in cartas:
-            carta.actualizar_volteo(dt)
+        #for carta in cartas:
+            #carta.actualizar_volteo(dt)
         
         # Temporizador (tiempo en segundos con decimales para barra fluida)
         if tiempo_limite and tiempo_limite > 0:
@@ -271,9 +277,10 @@ def ejecutar_juego(ventana, reloj, dificultad, tiempo_segundos=None):
                 seleccionadas = []
                 esperando_verificacion = False
                 esperando_voltear_atras = False
-
+        
         # Dibujar cartas con CLASE
         for carta in cartas:
+            carta.actualizar_volteo(dt)
             carta.dibujar(ventana)
         
         # Dibujar botones
@@ -321,7 +328,7 @@ def ejecutar_juego(ventana, reloj, dificultad, tiempo_segundos=None):
                             return "menu"
                         if btn_siguiente_nivel.clic_en_boton(evento.pos):
                             return "menu"
-                ventana.blit(_get_fondo(), (0, 0))
+                ventana.blit(fondo, (0, 0))
                 for carta in cartas:
                     carta.dibujar(ventana)
                 overlay_victoria = pygame.Surface((constantes.ANCHO, constantes.ALTO))
@@ -363,7 +370,7 @@ def ejecutar_juego(ventana, reloj, dificultad, tiempo_segundos=None):
                             return "reiniciar"
                         if btn_menu_principal_d.clic_en_boton(evento.pos):
                             return "menu"
-                ventana.blit(_get_fondo(), (0, 0))
+                ventana.blit(fondo, (0, 0))
                 for carta in cartas:
                     carta.dibujar(ventana)
                 overlay_derrota = pygame.Surface((constantes.ANCHO, constantes.ALTO))

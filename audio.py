@@ -5,12 +5,10 @@ _efectos_cache = {}
 
 EFECTOS = ("boton", "carta", "correcto", "incorrecto")
 
-
 def aplicar_volumen_musica():
     if pygame.mixer.get_init():
         v = constantes.volumen_musica_final()
         pygame.mixer.music.set_volume(v)
-
 
 def reproducir_musica(ruta_path, en_bucle=True):
     try:
@@ -20,10 +18,8 @@ def reproducir_musica(ruta_path, en_bucle=True):
     except (pygame.error, FileNotFoundError):
         pass
 
-
 def volumen_efectos():
     return constantes.volumen_efectos_final()
-
 
 def play_efecto(nombre):
     if not constantes.SONIDO_ACTIVADO or not pygame.mixer.get_init():

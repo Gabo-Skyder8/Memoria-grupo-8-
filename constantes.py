@@ -9,6 +9,7 @@ ASSETS_DIR = BASE_DIR / "Assets"
 IMG_DIR = ASSETS_DIR / "Images"
 SND_DIR = ASSETS_DIR / "Sonido"
 SFX_DIR = SND_DIR / "sfx" 
+FONT_DIR = ASSETS_DIR / "fonts"
 
 IMG_DIRS = {
     "facil": IMG_DIR / "facil",
@@ -27,13 +28,16 @@ IMG_TEMAS = {
 }
 TEMA_CARTAS = "instrumentos" 
 
+FONT_DIR = {
+    "titulo": FONT_DIR / "titulo.ttf",
+    "subtitulo": FONT_DIR / "subtitulo.ttf",
+}
 
 ANCHO = 1280
 ALTO = 720
 
 
 FONDO = pygame.image.load(str(IMG_DIR / "fondo.png"))
-
 
 CARTA_VOLTEADA = (str(IMG_DIR / "volteada.png"))
 
@@ -57,9 +61,8 @@ OVERLAY_FIN_JUEGO = (120, 60, 80)  # rojo oscuro pastel
 
 DURACION_VOLTEO = 0.20
 
-
-fuente_titulo = pygame.font.SysFont("arial", 60, bold=True)
-fuente_menu = pygame.font.SysFont("arial", 36)
+fuente_titulo = pygame.font.Font(str(FONT_DIR["titulo"]), 60)
+fuente_menu = pygame.font.Font(str(FONT_DIR["subtitulo"]), 36)
 
 
 DIFICULTAD = {
@@ -86,14 +89,6 @@ DIFICULTAD = {
         "columnas": 6,
         "filas": 4,
         "tiempo": 300  # 5 minutos
-    },
-    "libre": {
-        "num_pares": 10,
-        "ancho_alto": (120, 110),
-        "margen": 20,
-        "columnas": 4,
-        "filas": 4,
-        "tiempo": None # Sin tiempo límite
     }
 }
 
@@ -110,17 +105,6 @@ VOLUMEN_EFECTOS = 1.0
 
 def volumen_musica_final():
     return max(0, min(1.0, VOLUMEN_GENERAL * VOLUMEN_MUSICA))
-
-
-def recargar_assets():
-    """
-    Recarga superficies y fuentes tras pygame.quit()/pygame.init().
-    Llamar tras cerrar la ventana de preview y antes del bucle principal.
-    """
-    global FONDO, fuente_titulo, fuente_menu
-    FONDO = pygame.image.load(str(IMG_DIR / "fondo.png"))
-    fuente_titulo = pygame.font.SysFont("arial", 60, bold=True)
-    fuente_menu = pygame.font.SysFont("arial", 36)
 
 
 def volumen_efectos_final():

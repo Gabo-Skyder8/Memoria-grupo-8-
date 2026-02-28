@@ -9,6 +9,14 @@ def ejecutar_menu(ventana, reloj):
 
     pygame.display.set_caption("FLIP IT (Version 4)")
 
+    # asegúrate de tener música de fondo activa desde el inicio del menú
+    if constantes.SONIDO_ACTIVADO:
+        reproducir_musica(constantes.MUSICA_FONDO)
+
+    # si pasamos del menú a un nivel, el mismo fondo musical debe continuar;
+    # reproducir_musica no detiene la música si ya está sonando, por lo que
+    # no es necesario volver a llamarlo dentro de _ejecutar_partida.
+
     fondo = pygame.transform.scale(
         constantes.FONDO,
         (constantes.ANCHO, constantes.ALTO)
@@ -50,6 +58,7 @@ def ejecutar_menu(ventana, reloj):
         rect = superficie.get_rect(center=(x, y))
         ventana.blit(superficie, rect)
         return rect
+    
 
     def dibujar_boton_cuadro(texto, x_centro, y_centro, ancho=320, alto=50):
         rect = pygame.Rect(x_centro - ancho // 2, y_centro - alto // 2, ancho, alto)
@@ -88,6 +97,8 @@ def ejecutar_menu(ventana, reloj):
                     if boton_dificultad.collidepoint(evento.pos):
                         play_efecto("boton")
                         estado = ESTADO_DIFICULTAD
+                        # limpiar cualquier evento pendiente antes de salir
+                        pygame.event.clear()
                     elif boton_config.collidepoint(evento.pos):
                         play_efecto("boton")
                         estado = ESTADO_CONFIG
@@ -118,10 +129,6 @@ def ejecutar_menu(ventana, reloj):
                     elif boton_dificil.collidepoint(evento.pos):
                         play_efecto("boton")
                         dificultad_elegida = "dificil"
-                        estado = ESTADO_TIEMPO
-                    elif boton_libre.collidepoint(evento.pos):
-                        play_efecto("boton")
-                        dificultad_elegida = "libre"
                         estado = ESTADO_TIEMPO
                     elif boton_volver.collidepoint(evento.pos):
                         play_efecto("boton")
@@ -313,11 +320,6 @@ def ejecutar_menu(ventana, reloj):
                                           constantes.fuente_menu,
                                           constantes.AZUL_P,
                                           constantes.ANCHO // 2, 320)
-
-            boton_libre = dibujar_texto("Libre (10 pares)",
-                                        constantes.fuente_menu,
-                                        constantes.AZUL_P,
-                                        constantes.ANCHO // 2, 380)
 
             boton_volver = dibujar_texto("Volver",
                                          constantes.fuente_menu,
