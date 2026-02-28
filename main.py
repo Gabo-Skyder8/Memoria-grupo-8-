@@ -4,8 +4,16 @@ import constantes
 from menu import ejecutar_menu
 from game import ejecutar_juego
 from audio import reproducir_musica
+from src.juego import MiJuego
+
+if __name__ == "__main__":
+    game = MiJuego()
+    game.run_preview()
         
 pygame.init()
+
+# Recargar assets tras run_preview() (pygame.quit invalida superficies previas)
+constantes.recargar_assets()
 
 try:
     pygame.mixer.init()

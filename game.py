@@ -6,8 +6,12 @@ from pathlib import Path
 import constantes
 from constantes import DIFICULTAD, IMG_TEMAS
 from audio import play_efecto
+from enfocate import GameBase, GameMetadata
 
-fondo = pygame.transform.scale(constantes.FONDO, (constantes.ANCHO, constantes.ALTO))
+
+def _get_fondo():
+    """Obtiene el fondo escalado (usable tras recargar constantes)."""
+    return pygame.transform.scale(constantes.FONDO, (constantes.ANCHO, constantes.ALTO))
 
 class Carta:
     def __init__(self, imagen, x, y, ancho, alto):
@@ -199,7 +203,7 @@ def ejecutar_juego(ventana, reloj, dificultad, tiempo_segundos=None):
     jugando = True
     while jugando:
         dt = reloj.tick(constantes.FPS) / 1000.0
-        ventana.blit(fondo, (0, 0))
+        ventana.blit(_get_fondo(), (0, 0))
         
         for carta in cartas:
             carta.actualizar_volteo(dt)
@@ -317,7 +321,7 @@ def ejecutar_juego(ventana, reloj, dificultad, tiempo_segundos=None):
                             return "menu"
                         if btn_siguiente_nivel.clic_en_boton(evento.pos):
                             return "menu"
-                ventana.blit(fondo, (0, 0))
+                ventana.blit(_get_fondo(), (0, 0))
                 for carta in cartas:
                     carta.dibujar(ventana)
                 overlay_victoria = pygame.Surface((constantes.ANCHO, constantes.ALTO))
@@ -359,7 +363,7 @@ def ejecutar_juego(ventana, reloj, dificultad, tiempo_segundos=None):
                             return "reiniciar"
                         if btn_menu_principal_d.clic_en_boton(evento.pos):
                             return "menu"
-                ventana.blit(fondo, (0, 0))
+                ventana.blit(_get_fondo(), (0, 0))
                 for carta in cartas:
                     carta.dibujar(ventana)
                 overlay_derrota = pygame.Surface((constantes.ANCHO, constantes.ALTO))

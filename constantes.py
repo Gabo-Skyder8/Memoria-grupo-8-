@@ -112,5 +112,16 @@ def volumen_musica_final():
     return max(0, min(1.0, VOLUMEN_GENERAL * VOLUMEN_MUSICA))
 
 
+def recargar_assets():
+    """
+    Recarga superficies y fuentes tras pygame.quit()/pygame.init().
+    Llamar tras cerrar la ventana de preview y antes del bucle principal.
+    """
+    global FONDO, fuente_titulo, fuente_menu
+    FONDO = pygame.image.load(str(IMG_DIR / "fondo.png"))
+    fuente_titulo = pygame.font.SysFont("arial", 60, bold=True)
+    fuente_menu = pygame.font.SysFont("arial", 36)
+
+
 def volumen_efectos_final():
     return max(0, min(1.0, VOLUMEN_GENERAL * VOLUMEN_EFECTOS))
