@@ -1,6 +1,7 @@
 # FLIP IT
 <div align="center">
-** 🎴 El Juego de Memoria Excepcional**
+
+  **EL JUEGO DE MEMORIA EXCEPCIONAL 🎴**
   
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Pygame](https://img.shields.io/badge/Pygame-2.x-00B140?style=for-the-badge&logo=python&logoColor=white)](https://www.pygame.org/)
