@@ -37,7 +37,7 @@ El objetivo es encontrar todas las parejas de cartas iguales en el menor tiempo 
 Este proyecto utiliza [**enfocate-core-lib**](https://github.com/alecsoc/enfocate-core-lib), un framework base desarrollado por el equipo. Debes instalarlo antes de ejecutar el juego.
 
 ```bash
-git clone https://github.com/alecsoc/enfocate-core-lib.giT
+git clone https://github.com/alecsoc/enfocate-core-lib.git
 cd enfocate-core-lib
 pip install -e .
 ```
@@ -47,7 +47,7 @@ pip install -e .
 ### Paso 2: Clonar el repositorio del juego
 
 ```bash
-git clone https://github.com/Gabo-Skyder8/Memoria-grupo-9.git
+git clone https://github.com/Gabo-Skyder8/FLIP-IT.git
 cd FLIP-IT
 ```
 
