@@ -134,7 +134,6 @@ def obtener_config(pares):
 
 
 def _directorio_tema():
-    """Devuelve el directorio de imágenes del tema actual (resuelve 'aleatorio')."""
     tema = constantes.TEMA_CARTAS
     if tema == "aleatorio":
         opciones = [k for k in IMG_TEMAS if k != "aleatorio" and IMG_TEMAS[k]]
@@ -151,13 +150,12 @@ def crear_cartas(pares, dificultad):
     img_dir = _directorio_tema()
 
     try:
-        img_ori = constantes.get_carta_volteada()  # Función que carga la imagen
+        img_ori = constantes.get_carta_volteada()
         volteada = pygame.transform.scale(img_ori, (ancho, alto))
     except (FileNotFoundError, pygame.error):
         volteada = pygame.Surface((ancho, alto))
         volteada.fill(constantes.MORADO_P)
 
-    # Cargar imágenes desde el tema elegido
     imagenes = []
     for i in range(1, pares + 1):
         imagen = None
@@ -201,14 +199,15 @@ class MiJuego(GameBase):
     def __init__(self) -> None:
         meta = GameMetadata(
             title="FLIP IT",
-            description="Juego de memoria por parejas con distintas dificultades y límite de tiempo opcional.",
+            description="Juego de memoria excepcional",
             authors=["Gabriel Garanton", "Isabela Paraqueimo", "Cesar Moya"],
-            group_number=3,
+            group_number=9,
         )
         super().__init__(meta)
         self._clock = pygame.time.Clock()
         self._font = None
         self._fondo = None
+        self._mouse_presionado_antes = False
 
     def on_start(self) -> None:
         """Carga de recursos y prepara la superficie global."""
@@ -222,7 +221,7 @@ class MiJuego(GameBase):
         self._game_state = "menu"
 
 
-    def update(self, dt: float) -> None:
+    def update(self, dt: float) -> None: 
         if not hasattr(self, '_game_state'):
             return
             
@@ -230,6 +229,8 @@ class MiJuego(GameBase):
             self._update_menu(dt)
         elif self._game_state == "playing":
             self._update_game(dt)
+        elif self._game_state in ("victory", "defeat"):
+            self._update_endgame(dt)
 
     def _update_menu(self, dt):
         if not hasattr(self, '_menu_result'):
@@ -248,30 +249,29 @@ class MiJuego(GameBase):
             self._stop_context()
 
     def _update_game(self, dt):
-        if not hasattr(self, '_game_initialized'):
+        if not hasattr(self, '_game_initialized') or not self._game_initialized:
             return
             
-        # Lógica del juego aquí
-        result = self._handle_game_events()
-        if result is True:  # Salir si se presionó QUIT
-            return
-        elif result == "reiniciar":  # Reiniciar juego
+        accion = self._handle_game_events()
+    
+        if accion == "reiniciar":
+            self._start_game(self._current_dificultad, self._tiempo_limite)
+            return 
+        
+        elif accion == "ir_al_menu":
+            # Limpieza total para que el Launcher detecte el cambio de estado
             self._game_initialized = False
             self._game_state = "menu"
+            if hasattr(self, '_menu_result'): 
+                delattr(self, '_menu_result') 
+            if hasattr(self, '_btn_victory_menu'):
+                delattr(self, '_btn_victory_menu')
+            if hasattr(self, '_btn_defeat_menu'):
+                delattr(self, '_btn_defeat_menu')
             return
-        elif hasattr(self, '_game_state') and self._game_state in ["victory", "defeat"]:
-            # Si estamos en victoria/derrota y hay un resultado, procesarlo
-            if result == "reiniciar":
-                self._game_initialized = False
-                self._game_state = "menu"
-                return
-            elif result == "menu":
-                self._game_initialized = False
-                self._game_state = "menu"
-                return
-            
+
         self._update_game_logic(dt)
-        self._draw_game()  # Dibujar en self.surface (launcher)
+        self._draw_game()
 
     def _start_game(self, dificultad, tiempo_segundos=None):
         pygame.event.clear()
@@ -294,53 +294,85 @@ class MiJuego(GameBase):
         self._tiempo_voltear_atras = 0
         self._esperando_voltear_atras = False
         
-        self._btn_reiniciar = Boton("Reiniciar", 10, constantes.ALTO - 60, 120, 50)
-        self._btn_menu = Boton("Menú", 140, constantes.ALTO - 60, 120, 50)
+        self._btn_menu = Boton("Menú", 10, constantes.ALTO - 60, 120, 50)
         
         self._game_initialized = True
-
+    
     def _handle_game_events(self):
+        mouse_buttons = pygame.mouse.get_pressed()
+        mouse_pos = pygame.mouse.get_pos()
+        clic_izquierdo = mouse_buttons[0]
+    
+        resultado = None # Cambiamos False por None para mayor claridad
+
+        if clic_izquierdo and not self._mouse_presionado_antes:
+            # 1. BOTÓN MENÚ
+            if hasattr(self, '_btn_menu') and self._btn_menu.clic_en_boton(mouse_pos):
+                from audio import play_efecto
+                play_efecto("boton")
+                self._mouse_presionado_antes = True
+                return "ir_al_menu" # Enviamos una señal clara
+
+            # 3. CLIC EN CARTAS
+            elif not self._esperando_verificacion and not self._tiempo_agotado:
+                for carta in self._cartas:
+                    if carta.clic_en_carta(mouse_pos) and len(self._seleccionadas) < 2:
+                        from audio import play_efecto
+                        play_efecto("carta")
+                        carta.iniciar_volteo_mostrar()
+                        self._seleccionadas.append(carta)
+                        break
+
+        self._mouse_presionado_antes = clic_izquierdo
+        return resultado
+    
+    def _update_endgame(self, dt):
+        """Maneja eventos en pantallas de victoria y derrota"""
+        mouse_buttons = pygame.mouse.get_pressed()
+        mouse_pos = pygame.mouse.get_pos()
+        clic_izquierdo = mouse_buttons[0]
+        
+        # Manejar clic en botón de menú
+        if clic_izquierdo and not self._mouse_presionado_antes:
+            if self._game_state == "victory" and hasattr(self, '_btn_victory_menu'):
+                if self._btn_victory_menu.clic_en_boton(mouse_pos):
+                    from audio import play_efecto
+                    play_efecto("boton")
+                    self._mouse_presionado_antes = True
+                    self._go_to_menu()
+                    return
+            elif self._game_state == "defeat" and hasattr(self, '_btn_defeat_menu'):
+                if self._btn_defeat_menu.clic_en_boton(mouse_pos):
+                    from audio import play_efecto
+                    play_efecto("boton")
+                    self._mouse_presionado_antes = True
+                    self._go_to_menu()
+                    return
+        
+        # Manejar tecla ESC
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 self._stop_context()
-                return True
-            if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
-                self._game_state = "menu"
-                self._game_initialized = False
-                return False
-                
-            # Manejar eventos en pantallas de victoria/derrota
-            if hasattr(self, '_game_state') and self._game_state in ["victory", "defeat"]:
-                if evento.type == pygame.KEYDOWN:
-                    if evento.key == pygame.K_r:
-                        return "reiniciar"
-                    elif evento.key == pygame.K_ESCAPE:
-                        self._game_state = "menu"
-                        self._game_initialized = False
-                        return False
-                        
-            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                if not self._esperando_verificacion and not self._tiempo_agotado:
-                    for i, carta in enumerate(self._cartas):
-                        if carta.clic_en_carta(evento.pos) and len(self._seleccionadas) < 2:
-                            from audio import play_efecto
-                            play_efecto("carta")
-                            carta.iniciar_volteo_mostrar()
-                            self._seleccionadas.append(carta)
-                            break
-                
-                if hasattr(self, '_btn_reiniciar') and self._btn_reiniciar.clic_en_boton(evento.pos):
-                    from audio import play_efecto
-                    play_efecto("boton")
-                    return "reiniciar"
-                if hasattr(self, '_btn_menu') and self._btn_menu.clic_en_boton(evento.pos):
-                    from audio import play_efecto
-                    play_efecto("boton")
-                    self._game_state = "menu"
-                    self._game_initialized = False
-                    return False
-        return False
-
+                return
+            elif evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_ESCAPE:
+                    self._go_to_menu()
+                    return
+        
+        self._mouse_presionado_antes = clic_izquierdo
+    
+    def _go_to_menu(self):
+        """Vuelve al menú principal del juego"""
+        self._game_initialized = False
+        self._game_state = "menu"
+        if hasattr(self, '_menu_result'): 
+            delattr(self, '_menu_result')
+        # Limpiar botones de pantallas finales
+        if hasattr(self, '_btn_victory_menu'):
+            delattr(self, '_btn_victory_menu')
+        if hasattr(self, '_btn_defeat_menu'):
+            delattr(self, '_btn_defeat_menu')
+    
     def _update_game_logic(self, dt):
         if self._tiempo_limite and self._tiempo_limite > 0:
             tiempo_actual = pygame.time.get_ticks()
@@ -403,8 +435,7 @@ class MiJuego(GameBase):
         for carta in self._cartas:
             carta.dibujar(target_surface)
 
-        if hasattr(self, '_btn_reiniciar'):
-            self._btn_reiniciar.dibujar(target_surface)
+        if hasattr(self, '_btn_menu'):
             self._btn_menu.dibujar(target_surface)
 
         fuente = pygame.font.SysFont(None, 28)
@@ -448,19 +479,17 @@ class MiJuego(GameBase):
     def _draw_victory_screen_surface(self, surface):
         """Versión para ejecución independiente"""
         self._draw_victory_screen()
-        # Copiar el resultado a la superficie proporcionada
         if hasattr(self, '_temp_surface'):
             surface.blit(self._temp_surface, (0, 0))
 
     def _draw_defeat_screen_surface(self, surface):
         """Versión para ejecución independiente"""
         self._draw_defeat_screen()
-        # Copiar el resultado a la superficie proporcionada
         if hasattr(self, '_temp_surface'):
             surface.blit(self._temp_surface, (0, 0))
 
     def _draw_victory_screen(self):
-        # Crear superficie temporal
+
         self._temp_surface = pygame.Surface((constantes.ANCHO, constantes.ALTO))
         
         if hasattr(self, '_fondo') and self._fondo:
@@ -481,13 +510,17 @@ class MiJuego(GameBase):
         
         fuente_victoria = pygame.font.SysFont(None, 60)
         texto_victoria = fuente_victoria.render("¡Nivel completado!", True, constantes.BLANCO)
-        texto_rect_v = texto_victoria.get_rect(center=(constantes.ANCHO//2, constantes.ALTO//2 - 40))
+        texto_rect_v = texto_victoria.get_rect(center=(constantes.ANCHO//2, constantes.ALTO//2 - 60))
         self._temp_surface.blit(texto_victoria, texto_rect_v)
         
-        fuente_sub = pygame.font.SysFont(None, 28)
-        texto_sub = fuente_sub.render("R = Reiniciar nivel  |  ESC = Menú", True, constantes.BLANCO)
-        texto_rect_sub = texto_sub.get_rect(center=(constantes.ANCHO//2, constantes.ALTO//2 + 20))
-        self._temp_surface.blit(texto_sub, texto_rect_sub)
+        # Botón para ir al menú
+        if not hasattr(self, '_btn_victory_menu'):
+            self._btn_victory_menu = Boton("Menú", constantes.ANCHO//2 - 60, constantes.ALTO//2 + 20, 120, 50)
+        self._btn_victory_menu.dibujar(self._temp_surface)
+        
+        # Dibujar en self.surface para el launcher
+        if hasattr(self, 'surface') and self.surface:
+            self.surface.blit(self._temp_surface, (0, 0))
 
     def _draw_defeat_screen(self):
         # Crear superficie temporal
@@ -511,13 +544,22 @@ class MiJuego(GameBase):
         
         fuente_derrota = pygame.font.SysFont(None, 60)
         texto_derrota = fuente_derrota.render("Fin del juego", True, constantes.BLANCO)
-        texto_rect_d = texto_derrota.get_rect(center=(constantes.ANCHO//2, constantes.ALTO//2 - 40))
+        texto_rect_d = texto_derrota.get_rect(center=(constantes.ANCHO//2, constantes.ALTO//2 - 60))
         self._temp_surface.blit(texto_derrota, texto_rect_d)
         
-        fuente_sub_d = pygame.font.SysFont(None, 32)
+        fuente_sub_d = pygame.font.SysFont(None, 28)
         texto_sub_d = fuente_sub_d.render("Se acabó el tiempo, vuelve a intentarlo", True, constantes.BLANCO)
-        texto_rect_sub_d = texto_sub_d.get_rect(center=(constantes.ANCHO//2, constantes.ALTO//2 + 20))
+        texto_rect_sub_d = texto_sub_d.get_rect(center=(constantes.ANCHO//2, constantes.ALTO//2 - 10))
         self._temp_surface.blit(texto_sub_d, texto_rect_sub_d)
+        
+        # Botón para ir al menú
+        if not hasattr(self, '_btn_defeat_menu'):
+            self._btn_defeat_menu = Boton("Menú", constantes.ANCHO//2 - 60, constantes.ALTO//2 + 40, 120, 50)
+        self._btn_defeat_menu.dibujar(self._temp_surface)
+               
+        # Dibujar en self.surface para el launcher
+        if hasattr(self, 'surface') and self.surface:
+            self.surface.blit(self._temp_surface, (0, 0))
 
     def run_preview(self) -> None: 
         """Método para ejecución independiente - no modificar para integración con launcher."""
@@ -579,10 +621,7 @@ class MiJuego(GameBase):
                                     running = False
                                     break
                                 elif evento.type == pygame.KEYDOWN:
-                                    if evento.key == pygame.K_r:
-                                        self._game_state = "menu"
-                                        waiting = False
-                                    elif evento.key == pygame.K_ESCAPE:
+                                    if evento.key == pygame.K_ESCAPE:
                                         running = False
                                         waiting = False
                                         break
@@ -598,10 +637,7 @@ class MiJuego(GameBase):
                                     running = False
                                     break
                                 elif evento.type == pygame.KEYDOWN:
-                                    if evento.key == pygame.K_r:
-                                        self._game_state = "menu"
-                                        waiting = False
-                                    elif evento.key == pygame.K_ESCAPE:
+                                    if evento.key == pygame.K_ESCAPE:
                                         running = False
                                         waiting = False
                                         break
