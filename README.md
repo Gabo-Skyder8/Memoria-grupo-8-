@@ -61,10 +61,11 @@ python main.py
 ---
 
 ## 👥 Equipo de Desarrollo
+El grupo que se encargo de plasmar este juego es el Grupo 9 De Objetos y Abstraccion De Datos (OaD), Conformado por:
 
-- Gabriel Garanton
-- Isabela Paraqueimo
-- Cesar Moya
+- Gabriel Garanton (Integrador y desarrollador)
+- Isabela Paraqueimo (Desarrolladora)
+- Cesar Moya (Desarrollador)
 
   ## 📚 Contexto Académico
 
