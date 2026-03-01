@@ -10,8 +10,20 @@
 
 </div>
 
-## 📖 Sobre el Proyecto
+## 📖 Sobre el Proyecto:
+Bienvenid@ a este proyecto del juego **FLIP IT** . un juego que ayuda a la estimulacion y la concentracion del Jugador, 
+diseñado para niños y niñas de entre 6 a 10 años, pero puede ser jugado por **CUALQUIERA :D**.
 
+El objetivo es encontrar todas las parejas de cartas iguales en el menor tiempo posible. Las cartas están boca abajo y el jugador debe voltearlas de dos en dos para encontrar coincidencias. Si las cartas coinciden, permanecen visibles; si no, se voltean nuevamente.
+
+## ⚙ Caracteristicas ⚙
+- Tres niveles de dificultad
+- Temas visuales: 5 temas de cartas disponibles
+- Sistema de tiempo
+- Animaciones suaves
+- Música de fondo para menú y juego. Incluyendo efectos de sonido
+- Pantallas de finalización Tanto de Victoria Como de Derrota
+- Un sistema De Instrucciones 
 
 ## 🚀 Instalación
 - **Python 3.11+** — [Descargar aquí](https://www.python.org/downloads/)
