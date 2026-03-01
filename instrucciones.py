@@ -68,7 +68,7 @@ def _crear_superficie_texto(fuente_titulo, fuente_texto):
 
 
 def ejecutar_instrucciones(ventana, reloj):
-    fondo = pygame.transform.scale(constantes.FONDO, (constantes.ANCHO, constantes.ALTO))
+    fondo = pygame.transform.scale(constantes.get_fondo(), (constantes.ANCHO, constantes.ALTO))
     fuente_titulo = pygame.font.SysFont("arial", FUENTE_TITULO_SIZE)
     fuente_texto = pygame.font.SysFont("arial", FUENTE_TEXTO_SIZE)
     contenido_surf, contenido_altura = _crear_superficie_texto(fuente_titulo, fuente_texto)

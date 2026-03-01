@@ -18,7 +18,7 @@ def ejecutar_menu(ventana, reloj):
     # no es necesario volver a llamarlo dentro de _ejecutar_partida.
 
     fondo = pygame.transform.scale(
-        constantes.FONDO,
+        constantes.get_fondo(),
         (constantes.ANCHO, constantes.ALTO)
     )
 
@@ -64,7 +64,7 @@ def ejecutar_menu(ventana, reloj):
         rect = pygame.Rect(x_centro - ancho // 2, y_centro - alto // 2, ancho, alto)
         pygame.draw.rect(ventana, constantes.AZUL_OSCURO, rect)
         pygame.draw.rect(ventana, constantes.BLANCO, rect, 2)
-        surf = constantes.fuente_menu.render(texto, True, constantes.BLANCO)
+        surf = constantes.get_fuente_menu().render(texto, True, constantes.BLANCO)
         r_texto = surf.get_rect(center=rect.center)
         ventana.blit(surf, r_texto)
         return rect
@@ -230,7 +230,7 @@ def ejecutar_menu(ventana, reloj):
         if estado == ESTADO_MENU:
 
             dibujar_texto("FLIP IT",
-                          constantes.fuente_titulo,
+                          constantes.get_fuente_titulo(),
                           constantes.MORADO_P,
                           constantes.ANCHO // 2, 120)
 
@@ -241,7 +241,7 @@ def ejecutar_menu(ventana, reloj):
 
         elif estado == ESTADO_CONFIG:
             dibujar_texto("CONFIGURACIÓN",
-                          constantes.fuente_titulo,
+                          constantes.get_fuente_titulo(),
                           constantes.MORADO_P,
                           constantes.ANCHO // 2, 55)
             fuente_slider = pygame.font.SysFont("arial", 26)
@@ -302,80 +302,80 @@ def ejecutar_menu(ventana, reloj):
         elif estado == ESTADO_DIFICULTAD:
 
             dibujar_texto("SELECCIONA DIFICULTAD",
-                          constantes.fuente_titulo,
+                          constantes.get_fuente_titulo(),
                           constantes.MORADO_P,
                           constantes.ANCHO // 2, 100)
 
             boton_facil = dibujar_texto("Fácil (6 pares)",
-                                        constantes.fuente_menu,
+                                        constantes.get_fuente_menu(),
                                         constantes.AZUL_P,
                                         constantes.ANCHO // 2, 200)
 
             boton_medio = dibujar_texto("Medio (8 pares)",
-                                        constantes.fuente_menu,
+                                        constantes.get_fuente_menu(),
                                         constantes.AZUL_P,
                                         constantes.ANCHO // 2, 260)
 
             boton_dificil = dibujar_texto("Difícil (12 pares)",
-                                          constantes.fuente_menu,
+                                          constantes.get_fuente_menu(),
                                           constantes.AZUL_P,
                                           constantes.ANCHO // 2, 320)
 
             boton_volver = dibujar_texto("Volver",
-                                         constantes.fuente_menu,
+                                         constantes.get_fuente_menu(),
                                          constantes.AZUL_P,
                                          constantes.ANCHO // 2, 450)
 
         elif estado == ESTADO_TIEMPO:
             dibujar_texto("ELIGE EL TIEMPO",
-                          constantes.fuente_titulo,
+                          constantes.get_fuente_titulo(),
                           constantes.MORADO_P,
                           constantes.ANCHO // 2, 80)
             boton_sin_tiempo = dibujar_texto("Sin tiempo",
-                                             constantes.fuente_menu,
+                                             constantes.get_fuente_menu(),
                                              constantes.AZUL_P,
                                              constantes.ANCHO // 2, 180)
             boton_60 = dibujar_texto("60 segundos",
-                                     constantes.fuente_menu,
+                                     constantes.get_fuente_menu(),
                                      constantes.AZUL_P,
                                      constantes.ANCHO // 2, 240)
             boton_120 = dibujar_texto("120 segundos",
-                                      constantes.fuente_menu,
+                                      constantes.get_fuente_menu(),
                                       constantes.AZUL_P,
                                       constantes.ANCHO // 2, 300)
             boton_180 = dibujar_texto("180 segundos",
-                                      constantes.fuente_menu,
+                                      constantes.get_fuente_menu(),
                                       constantes.AZUL_P,
                                       constantes.ANCHO // 2, 360)
             boton_personalizado = dibujar_texto("Personalizado",
-                                                constantes.fuente_menu,
+                                                constantes.get_fuente_menu(),
                                                 constantes.AZUL_P,
                                                 constantes.ANCHO // 2, 420)
             boton_volver = dibujar_texto("Volver",
-                                         constantes.fuente_menu,
+                                         constantes.get_fuente_menu(),
                                          constantes.AZUL_P,
                                          constantes.ANCHO // 2, 480)
 
         elif estado == ESTADO_PERSONALIZADO:
             dibujar_texto("TIEMPO PERSONALIZADO (segundos)",
-                          constantes.fuente_titulo,
+                          constantes.get_fuente_titulo(),
                           constantes.MORADO_P,
                           constantes.ANCHO // 2, 120)
             texto_input = input_segundos if input_segundos else "0"
             rect_input = dibujar_texto(f"Segundos: {texto_input}",
-                                       constantes.fuente_menu,
+                                       constantes.get_fuente_menu(),
                                        constantes.BLANCO,
                                        constantes.ANCHO // 2, 260)
             dibujar_texto("Mín: 10 — Máx: 3600. Enter o clic en Confirmar.",
-                          constantes.fuente_menu,
+                          constantes.get_fuente_menu(),
                           constantes.AZUL_P,
                           constantes.ANCHO // 2, 320)
             boton_confirmar_tiempo = dibujar_texto("Confirmar",
-                                                   constantes.fuente_menu,
+                                                   constantes.get_fuente_menu(),
                                                    constantes.AZUL_P,
                                                    constantes.ANCHO // 2, 380)
             boton_volver_tiempo = dibujar_texto("Volver",
-                                                constantes.fuente_menu,
+                                                constantes.get_fuente_menu(),
                                                 constantes.AZUL_P,
                                                 constantes.ANCHO // 2, 440)
 

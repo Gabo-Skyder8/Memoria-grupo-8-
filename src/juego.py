@@ -4,11 +4,6 @@ import pygame
 import sys
 from pathlib import Path
 from enfocate import GameBase, GameMetadata, COLORS
-class GameBase:
-        def __init__(self, meta):
-            pass
-GameMetadata = lambda **kwargs: None
-COLORS = {"carbon_oscuro": (0, 0, 0)}
 
 import constantes
 from constantes import DIFICULTAD, IMG_TEMAS
@@ -156,7 +151,7 @@ def crear_cartas(pares, dificultad):
     img_dir = _directorio_tema()
 
     try:
-        img_ori = pygame.image.load(str(constantes.CARTA_VOLTEADA)).convert_alpha()
+        img_ori = constantes.get_carta_volteada()  # Función que carga la imagen
         volteada = pygame.transform.scale(img_ori, (ancho, alto))
     except (FileNotFoundError, pygame.error):
         volteada = pygame.Surface((ancho, alto))
@@ -218,25 +213,323 @@ class MiJuego(GameBase):
     def on_start(self) -> None:
         """Carga de recursos y prepara la superficie global."""
         self._font = pygame.font.SysFont("arial", 32)
-        global fondo_global
         fondo_global = pygame.transform.scale(
-            constantes.FONDO, (constantes.ANCHO, constantes.ALTO)
+            constantes.get_fondo(), (constantes.ANCHO, constantes.ALTO)
         )
         self._fondo = fondo_global
+        
+        # Inicializar estado del juego
+        self._game_state = "menu"
 
 
     def update(self, dt: float) -> None:
+        if not hasattr(self, '_game_state'):
+            return
+            
+        if self._game_state == "menu":
+            self._update_menu(dt)
+        elif self._game_state == "playing":
+            self._update_game(dt)
 
-        pass
+    def _update_menu(self, dt):
+        if not hasattr(self, '_menu_result'):
+            # Si ejecutamos desde launcher, mostrar menú del juego
+            if hasattr(self, 'surface') and self.surface:
+                self._menu_result = ejecutar_menu(self.surface, self._clock)
+            else:
+                # Ejecución independiente - mostrar menú
+                self._menu_result = ejecutar_menu(self.surface, self._clock)
+        
+        if hasattr(self, '_menu_result') and self._menu_result:
+            dificultad, tiempo = self._menu_result
+            self._start_game(dificultad, tiempo)
+            self._game_state = "playing"
+        elif hasattr(self, '_menu_result') and not self._menu_result:
+            self._stop_context()
+
+    def _update_game(self, dt):
+        if not hasattr(self, '_game_initialized'):
+            return
+            
+        # Lógica del juego aquí
+        result = self._handle_game_events()
+        if result is True:  # Salir si se presionó QUIT
+            return
+        elif result == "reiniciar":  # Reiniciar juego
+            self._game_initialized = False
+            self._game_state = "menu"
+            return
+        elif hasattr(self, '_game_state') and self._game_state in ["victory", "defeat"]:
+            # Si estamos en victoria/derrota y hay un resultado, procesarlo
+            if result == "reiniciar":
+                self._game_initialized = False
+                self._game_state = "menu"
+                return
+            elif result == "menu":
+                self._game_initialized = False
+                self._game_state = "menu"
+                return
+            
+        self._update_game_logic(dt)
+        self._draw_game()  # Dibujar en self.surface (launcher)
+
+    def _start_game(self, dificultad, tiempo_segundos=None):
+        pygame.event.clear()
+        
+        if constantes.SONIDO_ACTIVADO and pygame.mixer.get_init():
+            from audio import reproducir_musica
+            reproducir_musica(constantes.SONIDO_JUEGO)
+        
+        config = DIFICULTAD[dificultad]
+        self._num_pares = config["num_pares"]
+        self._cartas = crear_cartas(self._num_pares, dificultad)
+        
+        self._tiempo_limite = tiempo_segundos
+        self._tiempo_inicio = pygame.time.get_ticks()
+        self._tiempo_agotado = False
+        
+        self._seleccionadas = []
+        self._pares_encontrados = 0
+        self._esperando_verificacion = False
+        self._tiempo_voltear_atras = 0
+        self._esperando_voltear_atras = False
+        
+        self._btn_reiniciar = Boton("Reiniciar", 10, constantes.ALTO - 60, 120, 50)
+        self._btn_menu = Boton("Menú", 140, constantes.ALTO - 60, 120, 50)
+        
+        self._game_initialized = True
+
+    def _handle_game_events(self):
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                self._stop_context()
+                return True
+            if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
+                self._game_state = "menu"
+                self._game_initialized = False
+                return False
+                
+            # Manejar eventos en pantallas de victoria/derrota
+            if hasattr(self, '_game_state') and self._game_state in ["victory", "defeat"]:
+                if evento.type == pygame.KEYDOWN:
+                    if evento.key == pygame.K_r:
+                        return "reiniciar"
+                    elif evento.key == pygame.K_ESCAPE:
+                        self._game_state = "menu"
+                        self._game_initialized = False
+                        return False
+                        
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                if not self._esperando_verificacion and not self._tiempo_agotado:
+                    for i, carta in enumerate(self._cartas):
+                        if carta.clic_en_carta(evento.pos) and len(self._seleccionadas) < 2:
+                            from audio import play_efecto
+                            play_efecto("carta")
+                            carta.iniciar_volteo_mostrar()
+                            self._seleccionadas.append(carta)
+                            break
+                
+                if hasattr(self, '_btn_reiniciar') and self._btn_reiniciar.clic_en_boton(evento.pos):
+                    from audio import play_efecto
+                    play_efecto("boton")
+                    return "reiniciar"
+                if hasattr(self, '_btn_menu') and self._btn_menu.clic_en_boton(evento.pos):
+                    from audio import play_efecto
+                    play_efecto("boton")
+                    self._game_state = "menu"
+                    self._game_initialized = False
+                    return False
+        return False
+
+    def _update_game_logic(self, dt):
+        if self._tiempo_limite and self._tiempo_limite > 0:
+            tiempo_actual = pygame.time.get_ticks()
+            tiempo_transcurrido_sec = (tiempo_actual - self._tiempo_inicio) / 1000.0
+            self._tiempo_restante = max(0.0, self._tiempo_limite - tiempo_transcurrido_sec)
+            if self._tiempo_restante <= 0:
+                self._tiempo_agotado = True
+        else:
+            self._tiempo_restante = None
+
+        if len(self._seleccionadas) == 2 and not self._esperando_verificacion:
+            self._esperando_verificacion = True
+            self._tiempo_voltear_atras = pygame.time.get_ticks()
+
+        if self._esperando_verificacion and not self._esperando_voltear_atras:
+            tiempo_actual = pygame.time.get_ticks()
+            if tiempo_actual - self._tiempo_voltear_atras > 800:
+                c1, c2 = self._seleccionadas
+                if c1.imagen == c2.imagen:
+                    from audio import play_efecto
+                    play_efecto("correcto")
+                    c1.emparejada = True
+                    c2.emparejada = True
+                    self._pares_encontrados += 1
+                    self._seleccionadas = []
+                    self._esperando_verificacion = False
+                else:
+                    from audio import play_efecto
+                    play_efecto("incorrecto")
+                    c1.iniciar_volteo_ocultar()
+                    c2.iniciar_volteo_ocultar()
+                    self._esperando_voltear_atras = True
+                    
+        if self._esperando_voltear_atras and self._seleccionadas:
+            if all(c.animacion_volteo is None for c in self._seleccionadas):
+                self._seleccionadas = []
+                self._esperando_verificacion = False
+                self._esperando_voltear_atras = False
+
+        for carta in self._cartas:
+            carta.actualizar_volteo(dt)
+
+    def _draw_game(self, surface=None):
+        # Usar la superficie proporcionada o buscar una disponible
+        if surface:
+            target_surface = surface
+        elif hasattr(self, '_ventana') and self._ventana:
+            target_surface = self._ventana
+        elif hasattr(self, 'surface') and self.surface:
+            target_surface = self.surface
+        else:
+            # No hay superficie disponible, no dibujar
+            return
+        
+        if hasattr(self, '_fondo') and self._fondo:
+            target_surface.blit(self._fondo, (0, 0))
+        else:
+            target_surface.fill((50, 50, 50))
+
+        for carta in self._cartas:
+            carta.dibujar(target_surface)
+
+        if hasattr(self, '_btn_reiniciar'):
+            self._btn_reiniciar.dibujar(target_surface)
+            self._btn_menu.dibujar(target_surface)
+
+        fuente = pygame.font.SysFont(None, 28)
+        if hasattr(self, '_num_pares'):
+            nombre_dif = next(k for k, v in DIFICULTAD.items() if v["num_pares"] == self._num_pares)
+            texto_dif = fuente.render(f"{nombre_dif.upper()}: {self._num_pares} pares", True, constantes.AZUL_P)
+            target_surface.blit(texto_dif, (10, 10))
+            texto_prog = fuente.render(f"{self._pares_encontrados}/{self._num_pares} pares", True, constantes.MORADO_P)
+            target_surface.blit(texto_prog, (10, 40))
+
+            dibujar_barra_tiempo(
+                target_surface,
+                self._tiempo_restante if hasattr(self, '_tiempo_restante') and self._tiempo_restante is not None else 0.0,
+                self._tiempo_limite,
+                fuente,
+            )
+
+            if self._pares_encontrados == self._num_pares and not self._tiempo_agotado:
+                self._game_state = "victory"
+            elif self._tiempo_agotado:
+                self._game_state = "defeat"
+
+    def _draw_game_surface(self, surface):
+        """Método wrapper para dibujar el juego en una superficie específica"""
+        self._draw_game(surface)
 
     def draw(self) -> None:
         if self.surface:
-            self.surface.fill(COLORS["carbon_oscuro"])
+            if hasattr(self, '_game_state') and self._game_state == "playing":
+                self._draw_game()
+            elif hasattr(self, '_game_state') and self._game_state == "menu":
+                # Dibujar menú cuando se ejecuta desde launcher
+                self.surface.fill(COLORS["carbon_oscuro"])
+            elif hasattr(self, '_game_state') and self._game_state == "victory":
+                self._draw_victory_screen()
+            elif hasattr(self, '_game_state') and self._game_state == "defeat":
+                self._draw_defeat_screen()
+            else:
+                self.surface.fill(COLORS["carbon_oscuro"])
+
+    def _draw_victory_screen_surface(self, surface):
+        """Versión para ejecución independiente"""
+        self._draw_victory_screen()
+        # Copiar el resultado a la superficie proporcionada
+        if hasattr(self, '_temp_surface'):
+            surface.blit(self._temp_surface, (0, 0))
+
+    def _draw_defeat_screen_surface(self, surface):
+        """Versión para ejecución independiente"""
+        self._draw_defeat_screen()
+        # Copiar el resultado a la superficie proporcionada
+        if hasattr(self, '_temp_surface'):
+            surface.blit(self._temp_surface, (0, 0))
+
+    def _draw_victory_screen(self):
+        # Crear superficie temporal
+        self._temp_surface = pygame.Surface((constantes.ANCHO, constantes.ALTO))
+        
+        if hasattr(self, '_fondo') and self._fondo:
+            self._temp_surface.blit(self._fondo, (0, 0))
+        else:
+            self._temp_surface.fill((50, 50, 50))
+        
+        # Dibujar cartas
+        if hasattr(self, '_cartas'):
+            for carta in self._cartas:
+                carta.dibujar(self._temp_surface)
+        
+        # Overlay de victoria
+        overlay_victoria = pygame.Surface((constantes.ANCHO, constantes.ALTO))
+        overlay_victoria.fill((100, 150, 255))
+        overlay_victoria.set_alpha(120)
+        self._temp_surface.blit(overlay_victoria, (0, 0))
+        
+        fuente_victoria = pygame.font.SysFont(None, 60)
+        texto_victoria = fuente_victoria.render("¡Nivel completado!", True, constantes.BLANCO)
+        texto_rect_v = texto_victoria.get_rect(center=(constantes.ANCHO//2, constantes.ALTO//2 - 40))
+        self._temp_surface.blit(texto_victoria, texto_rect_v)
+        
+        fuente_sub = pygame.font.SysFont(None, 28)
+        texto_sub = fuente_sub.render("R = Reiniciar nivel  |  ESC = Menú", True, constantes.BLANCO)
+        texto_rect_sub = texto_sub.get_rect(center=(constantes.ANCHO//2, constantes.ALTO//2 + 20))
+        self._temp_surface.blit(texto_sub, texto_rect_sub)
+
+    def _draw_defeat_screen(self):
+        # Crear superficie temporal
+        self._temp_surface = pygame.Surface((constantes.ANCHO, constantes.ALTO))
+        
+        if hasattr(self, '_fondo') and self._fondo:
+            self._temp_surface.blit(self._fondo, (0, 0))
+        else:
+            self._temp_surface.fill((50, 50, 50))
+        
+        # Dibujar cartas
+        if hasattr(self, '_cartas'):
+            for carta in self._cartas:
+                carta.dibujar(self._temp_surface)
+        
+        # Overlay de derrota
+        overlay_derrota = pygame.Surface((constantes.ANCHO, constantes.ALTO))
+        overlay_derrota.fill((120, 60, 80))
+        overlay_derrota.set_alpha(180)
+        self._temp_surface.blit(overlay_derrota, (0, 0))
+        
+        fuente_derrota = pygame.font.SysFont(None, 60)
+        texto_derrota = fuente_derrota.render("Fin del juego", True, constantes.BLANCO)
+        texto_rect_d = texto_derrota.get_rect(center=(constantes.ANCHO//2, constantes.ALTO//2 - 40))
+        self._temp_surface.blit(texto_derrota, texto_rect_d)
+        
+        fuente_sub_d = pygame.font.SysFont(None, 32)
+        texto_sub_d = fuente_sub_d.render("Se acabó el tiempo, vuelve a intentarlo", True, constantes.BLANCO)
+        texto_rect_sub_d = texto_sub_d.get_rect(center=(constantes.ANCHO//2, constantes.ALTO//2 + 20))
+        self._temp_surface.blit(texto_sub_d, texto_rect_sub_d)
 
     def run_preview(self) -> None: 
-
+        """Método para ejecución independiente - no modificar para integración con launcher."""
         if not pygame.get_init():
             pygame.init()
+        
+        # Create display surface first
+        ventana = pygame.display.set_mode((constantes.ANCHO, constantes.ALTO))
+        
+        # Store the window reference for internal use
+        self._ventana = ventana
+        
         try:
             self.start()
         except Exception as exc:
@@ -246,12 +539,11 @@ class MiJuego(GameBase):
             self.on_start()
         except Exception:
             pass
-        if not hasattr(self, "surface") or self.surface is None:
-            self.surface = pygame.display.get_surface()
-        ventana = self.surface
-        if ventana is None:
-            ventana = pygame.display.set_mode((constantes.ANCHO, constantes.ALTO))
-            self.surface = ventana
+        
+        # Forzar la superficie para modo independiente
+        self._ventana = ventana
+        # Usar _ventana en lugar de intentar modificar surface
+        
         reloj = self._clock
         running = True
 
@@ -262,254 +554,57 @@ class MiJuego(GameBase):
                 break
             dificultad, tiempo = seleccion
 
-            accion = self._ejecutar_partida(ventana, reloj, dificultad, tiempo)
-            if accion == "reiniciar":
-                continue
-            elif accion == "menu":
-                continue
-            elif accion == "salir":
-                running = False
-                break
-            else:
-                running = False
-                break
+            # Iniciar el juego usando el nuevo sistema
+            self._start_game(dificultad, tiempo)
+            self._game_state = "playing"
+            
+            # Loop del juego para ejecución independiente
+            while self._game_state == "playing":
+                dt = self._clock.tick(constantes.FPS) / 1000.0
+                self._update_game(dt)
+                self._draw_game_surface(ventana)
+                pygame.display.update()
+                
+                # Manejar estados de victoria/derrota
+                if hasattr(self, '_game_state'):
+                    if self._game_state == "victory":
+                        self._draw_victory_screen_surface(ventana)
+                        pygame.display.update()
+                        # Esperar input para reiniciar o menú
+                        waiting = True
+                        while waiting:
+                            for evento in pygame.event.get():
+                                if evento.type == pygame.QUIT:
+                                    waiting = False
+                                    running = False
+                                    break
+                                elif evento.type == pygame.KEYDOWN:
+                                    if evento.key == pygame.K_r:
+                                        self._game_state = "menu"
+                                        waiting = False
+                                    elif evento.key == pygame.K_ESCAPE:
+                                        running = False
+                                        waiting = False
+                                        break
+                    elif self._game_state == "defeat":
+                        self._draw_defeat_screen_surface(ventana)
+                        pygame.display.update()
+                        # Esperar input para reiniciar o menú
+                        waiting = True
+                        while waiting:
+                            for evento in pygame.event.get():
+                                if evento.type == pygame.QUIT:
+                                    waiting = False
+                                    running = False
+                                    break
+                                elif evento.type == pygame.KEYDOWN:
+                                    if evento.key == pygame.K_r:
+                                        self._game_state = "menu"
+                                        waiting = False
+                                    elif evento.key == pygame.K_ESCAPE:
+                                        running = False
+                                        waiting = False
+                                        break
 
         pygame.quit()
-
-    def _ejecutar_partida(self, ventana, reloj, dificultad, tiempo_segundos=None):
-        # limpieza de eventos residuales para evitar que un clic del menú
-        # se interprete inmediatamente como QUIT o similar.
-        pygame.event.clear()
-
-        # reproducir la música específica del juego durante la partida
-        if constantes.SONIDO_ACTIVADO and pygame.mixer.get_init():
-            reproducir_musica(constantes.SONIDO_JUEGO)
-
-        # asegurarnos de tener una superficie válida
-        ventana = self.surface if hasattr(self, "surface") else None
-        if ventana is None:
-            ventana = pygame.display.get_surface()
-        if ventana is None:
-            ventana = pygame.display.set_mode((constantes.ANCHO, constantes.ALTO))
-            self.surface = ventana
-
-        if tiempo_segundos is not None:
-            tiempo_limite = tiempo_segundos
-        else:
-            tiempo_limite = None
-
-        config = DIFICULTAD[dificultad]
-        num_pares = config["num_pares"]
-
-        cartas = crear_cartas(num_pares, dificultad)
-
-        tiempo_agotado = False
-        tiempo_inicio = pygame.time.get_ticks()
-
-        seleccionadas = []
-        pares_encontrados = 0
-        esperando_verificacion = False
-        tiempo_voltear_atras = 0
-        esperando_voltear_atras = False
-
-        btn_reiniciar = Boton("Reiniciar", 10, constantes.ALTO - 60, 120, 50)
-        btn_menu = Boton("Menú", 140, constantes.ALTO - 60, 120, 50)
-
-        jugando = True
-        while jugando:
-            dt = reloj.tick(constantes.FPS) / 1000.0
-            ventana.blit(self._fondo, (0, 0))
-
-            if tiempo_limite and tiempo_limite > 0:
-                tiempo_actual = pygame.time.get_ticks()
-                tiempo_transcurrido_sec = (tiempo_actual - tiempo_inicio) / 1000.0
-                tiempo_restante = max(0.0, tiempo_limite - tiempo_transcurrido_sec)
-                if tiempo_restante <= 0:
-                    tiempo_agotado = True
-            else:
-                tiempo_restante = None
-
-            for evento in pygame.event.get():
-                if evento.type == pygame.QUIT:
-                    return "salir"
-
-                if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
-                    return "menu"
-
-                if (
-                    evento.type == pygame.MOUSEBUTTONDOWN
-                    and evento.button == 1
-                    and not esperando_verificacion
-                    and not tiempo_agotado
-                ):
-                    for carta in cartas:
-                        if carta.clic_en_carta(evento.pos) and len(seleccionadas) < 2:
-                            play_efecto("carta")
-                            carta.iniciar_volteo_mostrar()
-                            seleccionadas.append(carta)
-
-                    if btn_reiniciar.clic_en_boton(evento.pos):
-                        play_efecto("boton")
-                        return "reiniciar"
-                    if btn_menu.clic_en_boton(evento.pos):
-                        play_efecto("boton")
-                        return "menu"
-
-            if len(seleccionadas) == 2 and not esperando_verificacion:
-                esperando_verificacion = True
-                tiempo_voltear_atras = pygame.time.get_ticks()
-
-            if esperando_verificacion and not esperando_voltear_atras:
-                tiempo_actual = pygame.time.get_ticks()
-                if tiempo_actual - tiempo_voltear_atras > 800:
-                    c1, c2 = seleccionadas
-                    if c1.imagen == c2.imagen:
-                        play_efecto("correcto")
-                        c1.emparejada = True
-                        c2.emparejada = True
-                        pares_encontrados += 1
-                        seleccionadas = []
-                        esperando_verificacion = False
-                    else:
-                        play_efecto("incorrecto")
-                        c1.iniciar_volteo_ocultar()
-                        c2.iniciar_volteo_ocultar()
-                        esperando_voltear_atras = True
-            if esperando_voltear_atras and seleccionadas:
-                if all(c.animacion_volteo is None for c in seleccionadas):
-                    seleccionadas = []
-                    esperando_verificacion = False
-                    esperando_voltear_atras = False
-
-            for carta in cartas:
-                carta.actualizar_volteo(dt)
-                carta.dibujar(ventana)
-
-            btn_reiniciar.dibujar(ventana)
-            btn_menu.dibujar(ventana)
-
-            fuente = pygame.font.SysFont(None, 28)
-            nombre_dif = next(
-                k for k, v in DIFICULTAD.items() if v["num_pares"] == num_pares
-            )
-            texto_dif = fuente.render(f"{nombre_dif.upper()}: {num_pares} pares", True, constantes.AZUL_P)
-            ventana.blit(texto_dif, (10, 10))
-            texto_prog = fuente.render(
-                f"{pares_encontrados}/{num_pares} pares", True, constantes.MORADO_P
-            )
-            ventana.blit(texto_prog, (10, 40))
-
-            dibujar_barra_tiempo(
-                ventana,
-                tiempo_restante if tiempo_restante is not None else 0.0,
-                tiempo_limite,
-                fuente,
-            )
-
-            if pares_encontrados == num_pares and not tiempo_agotado:
-                accion = self._pantalla_victoria(ventana, reloj, cartas)
-                return accion
-            elif tiempo_agotado:
-                accion = self._pantalla_derrota(ventana, reloj, cartas)
-                return accion
-
-            pygame.display.update()
-
-    def _pantalla_victoria(self, ventana, reloj, cartas):
-        fuente_victoria = pygame.font.SysFont(None, 60)
-        texto_victoria = fuente_victoria.render("¡Nivel completado!", True, constantes.BLANCO)
-        texto_rect_v = texto_victoria.get_rect(
-            center=(constantes.ANCHO // 2, constantes.ALTO // 2 - 40)
-        )
-        fuente_sub = pygame.font.SysFont(None, 28)
-        texto_sub = fuente_sub.render(
-            "R = Reiniciar nivel  |  ESC = Menú  |  Enter = Siguiente nivel",
-            True,
-            constantes.BLANCO,
-        )
-        texto_rect_sub = texto_sub.get_rect(
-            center=(constantes.ANCHO // 2, constantes.ALTO // 2 + 20)
-        )
-        btn_reiniciar_nivel = Boton("Reiniciar nivel", 80, constantes.ALTO - 70, 180, 50)
-        btn_menu_principal = Boton("Menú principal", 340, constantes.ALTO - 70, 180, 50)
-        btn_siguiente_nivel = Boton("Siguiente nivel", 600, constantes.ALTO - 70, 180, 50)
-        victoria_activa = True
-        while victoria_activa:
-            for evento in pygame.event.get():
-                if evento.type == pygame.QUIT:
-                    return "salir"
-                if evento.type == pygame.KEYDOWN:
-                    if evento.key == pygame.K_r:
-                        return "reiniciar"
-                    if evento.key == pygame.K_ESCAPE:
-                        return "menu"
-                    if evento.key == pygame.K_RETURN:
-                        return "menu"
-                if evento.type == pygame.MOUSEBUTTONDOWN:
-                    if btn_reiniciar_nivel.clic_en_boton(evento.pos):
-                        return "reiniciar"
-                    if btn_menu_principal.clic_en_boton(evento.pos):
-                        return "menu"
-                    if btn_siguiente_nivel.clic_en_boton(evento.pos):
-                        return "menu"
-            ventana.blit(self._fondo, (0, 0))
-            for carta in cartas:
-                carta.dibujar(ventana)
-            overlay_victoria = pygame.Surface((constantes.ANCHO, constantes.ALTO))
-            overlay_victoria.fill((100, 150, 255))
-            overlay_victoria.set_alpha(120)
-            ventana.blit(overlay_victoria, (0, 0))
-            ventana.blit(texto_victoria, texto_rect_v)
-            ventana.blit(texto_sub, texto_rect_sub)
-            btn_reiniciar_nivel.dibujar(ventana)
-            btn_menu_principal.dibujar(ventana)
-            btn_siguiente_nivel.dibujar(ventana)
-            pygame.display.update()
-            reloj.tick(60)
-        return "menu"
-
-    def _pantalla_derrota(self, ventana, reloj, cartas):
-        fuente_derrota = pygame.font.SysFont(None, 60)
-        texto_derrota = fuente_derrota.render("Fin del juego", True, constantes.BLANCO)
-        texto_rect_d = texto_derrota.get_rect(
-            center=(constantes.ANCHO // 2, constantes.ALTO // 2 - 40)
-        )
-        fuente_sub_d = pygame.font.SysFont(None, 32)
-        texto_sub_d = fuente_sub_d.render(
-            "Se acabo el tiempo, vuelve a intentarlo", True, constantes.BLANCO
-        )
-        texto_rect_sub_d = texto_sub_d.get_rect(
-            center=(constantes.ANCHO // 2, constantes.ALTO // 2 + 20)
-        )
-        btn_reiniciar_nivel_d = Boton("Reiniciar nivel", 440, constantes.ALTO - 70, 180, 50)
-        btn_menu_principal_d = Boton("Menú principal", 660, constantes.ALTO - 70, 180, 50)
-        derrota_activa = True
-        while derrota_activa:
-            for evento in pygame.event.get():
-                if evento.type == pygame.QUIT:
-                    return "salir"
-                if evento.type == pygame.KEYDOWN:
-                    if evento.key == pygame.K_r:
-                        return "reiniciar"
-                    if evento.key == pygame.K_ESCAPE:
-                        return "menu"
-                if evento.type == pygame.MOUSEBUTTONDOWN:
-                    if btn_reiniciar_nivel_d.clic_en_boton(evento.pos):
-                        return "reiniciar"
-                    if btn_menu_principal_d.clic_en_boton(evento.pos):
-                        return "menu"
-            ventana.blit(self._fondo, (0, 0))
-            for carta in cartas:
-                carta.dibujar(ventana)
-            overlay_derrota = pygame.Surface((constantes.ANCHO, constantes.ALTO))
-            overlay_derrota.fill(constantes.OVERLAY_FIN_JUEGO)
-            overlay_derrota.set_alpha(180)
-            ventana.blit(overlay_derrota, (0, 0))
-            ventana.blit(texto_derrota, texto_rect_d)
-            ventana.blit(texto_sub_d, texto_rect_sub_d)
-            btn_reiniciar_nivel_d.dibujar(ventana)
-            btn_menu_principal_d.dibujar(ventana)
-            pygame.display.update()
-            reloj.tick(60)
-        return "menu"
 
