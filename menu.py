@@ -7,7 +7,7 @@ from audio import reproducir_musica, play_efecto
 
 def ejecutar_menu(ventana, reloj):
 
-    pygame.display.set_caption("FLIP IT (Version 4)")
+    pygame.display.set_caption("FLIP IT")
 
     # asegúrate de tener música de fondo activa desde el inicio del menú
     if constantes.SONIDO_ACTIVADO:
